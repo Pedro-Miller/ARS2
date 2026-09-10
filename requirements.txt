@@ -1,0 +1,8 @@
+groq
+google-genai
+torch
+transformers
+networkx
+pandas
+accelerate
+sentencepiece

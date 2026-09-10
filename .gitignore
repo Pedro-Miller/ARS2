@@ -1,0 +1,14 @@
+# Ambiente Virtual
+.ARS/
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Dados e saídas locais
+#*.json
+#*.gexf
+
+# Configurações do VS Code/IDE
+.vscode/
+.idea/
