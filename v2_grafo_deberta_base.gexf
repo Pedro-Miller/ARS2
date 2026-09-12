@@ -1,0 +1,163 @@
+<?xml version='1.0' encoding='utf-8'?>
+<gexf xmlns="http://www.gexf.net/1.2draft" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd" version="1.2">
+  <meta lastmodifieddate="2026-09-12">
+    <creator>NetworkX 3.6.1</creator>
+  </meta>
+  <graph defaultedgetype="directed" mode="static" name="">
+    <attributes mode="static" class="edge">
+      <attribute id="1" title="sign" type="long" />
+    </attributes>
+    <attributes mode="static" class="node">
+      <attribute id="0" title="stance" type="string" />
+    </attributes>
+    <nodes>
+      <node id="Extreme_Revenue_720" label="Extreme_Revenue_720">
+        <attvalues>
+          <attvalue for="0" value="NEUTRAL" />
+        </attvalues>
+      </node>
+      <node id="conn_r2112" label="conn_r2112">
+        <attvalues>
+          <attvalue for="0" value="NEUTRAL" />
+        </attvalues>
+      </node>
+      <node id="gabriel29ewui" label="gabriel29ewui">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+        </attvalues>
+      </node>
+      <node id="Latte_Da_cat" label="Latte_Da_cat">
+        <attvalues>
+          <attvalue for="0" value="NEUTRAL" />
+        </attvalues>
+      </node>
+      <node id="Grouchy-Win-6191" label="Grouchy-Win-6191">
+        <attvalues>
+          <attvalue for="0" value="NEUTRAL" />
+        </attvalues>
+      </node>
+      <node id="Heartlessaus" label="Heartlessaus">
+        <attvalues>
+          <attvalue for="0" value="NEUTRAL" />
+        </attvalues>
+      </node>
+      <node id="SaudiPhilippines" label="SaudiPhilippines">
+        <attvalues>
+          <attvalue for="0" value="NEUTRAL" />
+        </attvalues>
+      </node>
+      <node id="Lifeisweirdbro0-o" label="Lifeisweirdbro0-o">
+        <attvalues>
+          <attvalue for="0" value="NEUTRAL" />
+        </attvalues>
+      </node>
+      <node id="Effective-Guest1601" label="Effective-Guest1601">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+        </attvalues>
+      </node>
+      <node id="Josemsuaza11" label="Josemsuaza11">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+        </attvalues>
+      </node>
+      <node id="Fun_Issue5555" label="Fun_Issue5555">
+        <attvalues>
+          <attvalue for="0" value="NEUTRAL" />
+        </attvalues>
+      </node>
+      <node id="TheRealBlueDude" label="TheRealBlueDude">
+        <attvalues>
+          <attvalue for="0" value="NEUTRAL" />
+        </attvalues>
+      </node>
+      <node id="Cassidy_Aka_Sundae" label="Cassidy_Aka_Sundae">
+        <attvalues>
+          <attvalue for="0" value="NEUTRAL" />
+        </attvalues>
+      </node>
+      <node id="Lazy_Tutor9447" label="Lazy_Tutor9447">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+        </attvalues>
+      </node>
+    </nodes>
+    <edges>
+      <edge source="conn_r2112" target="Latte_Da_cat" id="0" weight="-1">
+        <attvalues>
+          <attvalue for="1" value="-1" />
+        </attvalues>
+      </edge>
+      <edge source="conn_r2112" target="Grouchy-Win-6191" id="1" weight="0">
+        <attvalues>
+          <attvalue for="1" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="conn_r2112" target="Heartlessaus" id="2" weight="0">
+        <attvalues>
+          <attvalue for="1" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="Latte_Da_cat" target="conn_r2112" id="3" weight="0">
+        <attvalues>
+          <attvalue for="1" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="Grouchy-Win-6191" target="conn_r2112" id="4" weight="0">
+        <attvalues>
+          <attvalue for="1" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="Heartlessaus" target="conn_r2112" id="5" weight="0">
+        <attvalues>
+          <attvalue for="1" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="SaudiPhilippines" target="conn_r2112" id="6" weight="0">
+        <attvalues>
+          <attvalue for="1" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="Lifeisweirdbro0-o" target="conn_r2112" id="7" weight="-1">
+        <attvalues>
+          <attvalue for="1" value="-1" />
+        </attvalues>
+      </edge>
+      <edge source="Effective-Guest1601" target="gabriel29ewui" id="8" weight="1">
+        <attvalues>
+          <attvalue for="1" value="1" />
+        </attvalues>
+      </edge>
+      <edge source="Effective-Guest1601" target="Josemsuaza11" id="9" weight="-1">
+        <attvalues>
+          <attvalue for="1" value="-1" />
+        </attvalues>
+      </edge>
+      <edge source="Josemsuaza11" target="gabriel29ewui" id="10" weight="-1">
+        <attvalues>
+          <attvalue for="1" value="-1" />
+        </attvalues>
+      </edge>
+      <edge source="Fun_Issue5555" target="gabriel29ewui" id="11" weight="0">
+        <attvalues>
+          <attvalue for="1" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="TheRealBlueDude" target="gabriel29ewui" id="12" weight="0">
+        <attvalues>
+          <attvalue for="1" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="Cassidy_Aka_Sundae" target="gabriel29ewui" id="13" weight="0">
+        <attvalues>
+          <attvalue for="1" value="0" />
+        </attvalues>
+      </edge>
+      <edge source="Lazy_Tutor9447" target="gabriel29ewui" id="14" weight="-1">
+        <attvalues>
+          <attvalue for="1" value="-1" />
+        </attvalues>
+      </edge>
+    </edges>
+  </graph>
+</gexf>
