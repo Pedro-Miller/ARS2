@@ -1,0 +1,101 @@
+<?xml version='1.0' encoding='utf-8'?>
+<gexf xmlns="http://www.gexf.net/1.2draft" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd" version="1.2">
+  <meta lastmodifieddate="2026-10-22">
+    <creator>NetworkX 3.6.1</creator>
+  </meta>
+  <graph defaultedgetype="directed" mode="static" name="">
+    <attributes mode="static" class="edge">
+      <attribute id="5" title="sign" type="long" />
+      <attribute id="6" title="conflict_intensity" type="double" />
+    </attributes>
+    <attributes mode="static" class="node">
+      <attribute id="0" title="stance" type="string" />
+      <attribute id="1" title="total_comments" type="long" />
+      <attribute id="2" title="pro_ratio" type="double" />
+      <attribute id="3" title="anti_ratio" type="double" />
+      <attribute id="4" title="neutral_ratio" type="double" />
+    </attributes>
+    <nodes>
+      <node id="Extreme_Revenue_720" label="Extreme_Revenue_720">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="gabriel29ewui" label="gabriel29ewui">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Josemsuaza11" label="Josemsuaza11">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Fun_Issue5555" label="Fun_Issue5555">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="TheRealBlueDude" label="TheRealBlueDude">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Lazy_Tutor9447" label="Lazy_Tutor9447">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+    </nodes>
+    <edges>
+      <edge source="Josemsuaza11" target="gabriel29ewui" id="0" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="1.0" />
+        </attvalues>
+      </edge>
+      <edge source="Fun_Issue5555" target="gabriel29ewui" id="1" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="1.0" />
+        </attvalues>
+      </edge>
+      <edge source="TheRealBlueDude" target="gabriel29ewui" id="2" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="1.0" />
+        </attvalues>
+      </edge>
+      <edge source="Lazy_Tutor9447" target="gabriel29ewui" id="3" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="1.0" />
+        </attvalues>
+      </edge>
+    </edges>
+  </graph>
+</gexf>

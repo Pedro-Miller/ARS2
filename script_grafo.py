@@ -92,6 +92,8 @@ def classify_root_stance(text: str) -> str:
         return "PRO"
     if result.startswith("ANTI"):
         return "ANTI"
+    if result.startswith("NEUTRAL"):
+        return "NEUTRAL"
 
     print(f"[AVISO LLM] Resposta não-conforme: {result!r} — classificando como NEUTRAL")
     return "NEUTRAL"
@@ -213,10 +215,15 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
             if item.get("dataType") == "post":
                 stance = classify_root_stance(text)
                 nodes_stance[item_id] = stance
-                user_stance_counts[author][stance] += 1
+                
+                # Poda de Raiz Neutra (Moved up to prevent counting)
                 if stance == "NEUTRAL":
                     pruned_items.add(item_id)
                     n_pruned_this_level += 1
+                    continue
+                
+                # Contabiliza o voto apenas se a raiz tiver posição
+                user_stance_counts[author][stance] += 1
                 continue
             
             # Poda de Órfãos (Pai não tem texto ou foi descartado)
