@@ -43,7 +43,7 @@ model.eval()
 model.to(device)
 
 # ---------------------------------------------------------------------------
-# 3. Filtro Determinístico de Slangs (Regex)
+# 3. Filtro Determinístico de Slangs (Regex + Janela de Negação)
 # ---------------------------------------------------------------------------
 OPPOSITION_SLANG = [
     r"bait", r"baits", r"baiting", r"baited",
@@ -52,10 +52,27 @@ OPPOSITION_SLANG = [
     r"delusional", r"schizo", r"1st\s*quartile"
 ]
 
+NEGATIONS = {"not", "no", "isn't", "isnt", "neither", "never", "não", "nao"}
+
 def check_slang_contradiction(text: str) -> bool:
+    """
+    Verifica se há gíria de oposição com limite de palavra (\b) 
+    e valida se não há termos de negação nas 3 palavras anteriores.
+    """
     text_lower = text.lower()
+    words = re.findall(r'\b\w+\b', text_lower)
+    
     for slang in OPPOSITION_SLANG:
-        if re.search(rf"\b{slang}\b", text_lower):
+        match = re.search(rf"\b{slang}\b", text_lower)
+        if match:
+            # Extrai a primeira palavra capturada pelo padrão regex
+            matched_word = match.group(0).split()[0]
+            if matched_word in words:
+                idx = words.index(matched_word)
+                prev_words = words[max(0, idx - 3):idx]
+                # Se houver negação antes da gíria, não força contradição
+                if any(neg in prev_words for neg in NEGATIONS):
+                    return False
             return True
     return False
 
@@ -141,7 +158,7 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
             if iid:
                 items_by_id[iid] = item
     
-    # Cálculo de profundidade real
+    # Cálculo de profundidade real (BFS Tree Depth)
     depth_cache = {}
     def get_true_level(item_id, visiting=None):
         if item_id in depth_cache:
@@ -216,7 +233,7 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
                 stance = classify_root_stance(text)
                 nodes_stance[item_id] = stance
                 
-                # Poda de Raiz Neutra (Moved up to prevent counting)
+                # Poda de Raiz Neutra
                 if stance == "NEUTRAL":
                     pruned_items.add(item_id)
                     n_pruned_this_level += 1
@@ -307,18 +324,20 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
             neutral_ratio=round(counts["NEUTRAL"] / total, 2)
         )
     
-    # Arestas (Acúmulo + conflict_intensity)
+    # Arestas (Acúmulo + conflict_intensity corrigido)
     for (u1, u2), relacoes in interacoes.items():
         if u1 not in G.nodes or u2 not in G.nodes:
             continue
         peso = len(relacoes)
         soma = sum(relacoes)
         sinal = 1 if soma >= 0 else -1
+        # Fórmula: 1.0 - (|soma| / peso) -> 0.0 para consenso total, 1.0 para conflito máximo
+        conflict_intensity = round(1.0 - (abs(soma) / peso), 2)
         G.add_edge(
             u1, u2,
             weight=peso,
             sign=sinal,
-            conflict_intensity=round(abs(soma) / peso, 2)
+            conflict_intensity=conflict_intensity
         )
     
     print(f"Exportando grafo com {G.number_of_nodes()} nós e {G.number_of_edges()} arestas...")
