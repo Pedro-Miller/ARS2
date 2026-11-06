@@ -2,7 +2,7 @@
 
 **Data:** 2026-10-22  
 **Tags:** #nlp #graph-analysis #stance-classification #openrouter #deberta #reddit #gexf #obsidian #bfs #networkx  
-**Status:** 🟡 Em Refatoração (Poda BFS + Correções de Filtro e Agregação)
+**Status:** 🟢 Funcional & Estável (BFS + Batching GPU + Slang Regex com Negação + Agregação por Moda)
 
 ---
 
@@ -16,7 +16,7 @@ O objetivo da pipeline é auditar e visualizar a polarização da comunidade r/a
 
 * **LLM exclusivamente em posts raiz de thread:** A LLM (Gemma 4 31B via OpenRouter) é chamada **apenas** para classificar o post pai de cada thread (dataType == "post"). Toda a classificação de comentários é feita por NLI local ou poda determinística. Isso reduz custo, latência e superfície de erro.
 * **Poda dinâmica de neutros:** O processamento é feito nível-por-nível (BFS). Se um nó é NEUTRAL, sua subárvore inteira é podada antes de qualquer inferência.
-* **Pre-filtro determinístico de slangs (Regex):** Gírias de fórum (bait, low iq, copium, etc.) forçam Contradição (-1) com limites de palavra (\b) para evitar falsos positivos.
+* **Pre-filtro determinístico de slangs (Regex + Janela de Negação):** Gírias de fórum (bait, low iq, copium, etc.) forçam Contradição (-1) com limites de palavra (`\b`) para evitar falsos positivos, validando também se não há termos de negação nas 3 palavras anteriores.
 * **NLI local em batching GPU:** Respostas elaboradas são avaliadas em lotes de 32 na GPU com MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli.
 * **Agregação matemática:** Nós e arestas são agregados por moda e acúmulo, nunca sobrescritos.
 
@@ -64,7 +64,7 @@ Post raiz (dataType=post)
 
 ---
 
-### 2.8. Falsos Positivos no Filtro de Slang (Substring Matching)
+### 2.8. Falsos Positivos no Filtro de Slang (Substring Matching & Janela de Negação)
 
 **Código antigo (com erro):**
 ``` python
@@ -72,7 +72,7 @@ Post raiz (dataType=post)
         text_lower = text.lower()
         return any(slang in text_lower for slang in OPPOSITION_SLANG)
 ```
-* **O que estava errado:** O operador `in` em Python faz busca de *substring*, não de palavra inteira. Isso significa que a palavra "inhabit" acionava a gíria "bait"; "trolley" acionava "troll"; e "clownfish" acionava "clown". Como o filtro força a relação `-1` antes de consultar o NLI, o falso positivo não era atenuado — o comentário virava uma contradição com 100% de certeza. Um comentário neutro sobre o "trolley problem" virava uma aresta `-1` no grafo.
+* **O que estava errado:** O operador `in` em Python faz busca de *substring*, não de palavra inteira. Isso significa que a palavra "inhabit" acionava a gíria "bait"; "trolley" acionava "troll"; e "clownfish" acionava "clown". Como o filtro força a relação `-1` antes de consultar o NLI, o falso positivo não era atenuado — o comentário virava uma contradição com 100% de certeza. Um comentário neutro sobre o "trolley problem" virava uma aresta `-1` no grafo. Além disso, comentários com negações prévias (ex: *"This is NOT bait"*) forçavam a relação `-1` incorretamente.
 
 **Código novo (consertado):**
 ``` python
@@ -84,16 +84,25 @@ Post raiz (dataType=post)
         r"clowns?", r"trolls?", r"trolling", r"trolled",
         r"delusional", r"schizo", r"1st\s*quartile"
     ]
+    NEGATIONS = {"not", "no", "isn't", "isnt", "neither", "never", "não", "nao"}
 
     def check_slang_contradiction(text: str) -> bool:
         text_lower = text.lower()
+        words = re.findall(r'\b\w+\b', text_lower)
         for slang in OPPOSITION_SLANG:
-            if re.search(rf"\b{slang}\b", text_lower):
+            match = re.search(rf"\b{slang}\b", text_lower)
+            if match:
+                matched_word = match.group(0).split()[0]
+                if matched_word in words:
+                    idx = words.index(matched_word)
+                    prev_words = words[max(0, idx - 3):idx]
+                    if any(neg in prev_words for neg in NEGATIONS):
+                        return False  # Cancela o -1 forçado se houver negação
                 return True
         return False
 ```
 
-* **O que foi consertado:** Substituímos a busca de substring por `re.search` com limites de palavra (`\b`), garantindo que a gíria seja uma palavra isolada. Como o `\b` dos dois lados só casa a palavra exata, a lista `OPPOSITION_SLANG` foi expandida com as variações explícitas (plurais, gerúndios e particípios, como "baits", "baiting", "trolled"). Agora "inhabit" não aciona mais "bait".
+* **O que foi consertado:** Substituímos a busca de substring por `re.search` com limites de palavra (`\b`), garantindo que a gíria seja uma palavra isolada. Como o `\b` dos dois lados só casa a palavra exata, a lista `OPPOSITION_SLANG` foi expandida com as variações explícitas (plurais, gerúndios e particípios, como "baits", "baiting", "trolled"). Adicionamos a verificação da janela de negação (até 3 palavras anteriores) para validar que o usuário não está negando a gíria. Agora "inhabit" não aciona "bait" e "not bait" não força contradição.
 
 ---
 
@@ -120,6 +129,8 @@ Post raiz (dataType=post)
         return "PRO"
     if result.startswith("ANTI"):
         return "ANTI"
+    if result.startswith("NEUTRAL"):
+        return "NEUTRAL"
 
     print(f"[AVISO LLM] Resposta não-conforme: {result!r} — classificando como NEUTRAL")
     return "NEUTRAL"
@@ -222,14 +233,15 @@ Post raiz (dataType=post)
 
     if parent_stance is None:
         print(f"[AVISO] Pai {parent_id} não classificado — pulando filho {item_id}")
+        pruned_items.add(item_id)
         continue
 ```
 
-* **O que foi consertado:** Removemos o default silencioso. Agora, se o pai não for encontrado, o código emite um log de aviso no terminal e pula o filho (`continue`). O operador fica sabendo de qualquer anomalia nos dados, em vez de gerar um grafo silenciosamente incorreto.
+* **O que foi consertado:** Removemos o default silencioso. Agora, se o pai não for encontrado, o código emite um log de aviso no terminal e pula o filho (`continue`), adicionando-o a `pruned_items`. O operador fica sabendo de qualquer anomalia nos dados, em vez de gerar um grafo silenciosamente incorreto.
 
 ---
 
-### 2.13. Sobrescrita de Nós e Arestas no NetworkX
+### 2.13. Sobrescrita de Nós e Arestas no NetworkX e Métrica de Conflito
 
 **Código antigo (com erro):**
 ``` python
@@ -239,36 +251,53 @@ Post raiz (dataType=post)
 
     if parent_author and parent_author != author:
         G.add_edge(author, parent_author, weight=relation, sign=relation)
+
+    # Fórmula antiga incorreta:
+    conflict_intensity = round(abs(soma) / peso, 2)
 ```
 
 * **O que estava errado:** 
   - **Nós:** Como o processamento era por `depth` ascendente, o stance do nó era o do **primeiro comentário processado** (o mais raso). Um usuário que comentava 1x PRO no nível 1 e 10x ANTI no nível 3 era registrado como PRO.
-  - **Arestas:** O `G.add_edge` **sobrescreve** silenciosamente se a aresta já existe. Se João e Pedro interagiam 5 vezes, só a última interação era preservada. As métricas de modularidade, clustering e degree ficavam subestimadas ou distorcidas.
+  - **Arestas:** O `G.add_edge` **sobrescreve** silenciosamente se a aresta já existe. Se João e Pedro interagiam 5 vezes, só a última interação era preserveda. As métricas de modularidade, clustering e degree ficavam subestimadas ou distorcidas.
+  - **Métrica:** A fórmula antiga `abs(soma) / peso` retornava `0.0` para empates (2 concordâncias e 2 contradições) e `1.0` para concordâncias puras, invertendo a lógica de intensidade de conflito.
 
 **Código novo (consertado):**
 ``` python
     # Dicionários auxiliares
-    user_stance_counts = {}
+    user_stance_counts = defaultdict(lambda: {"PRO": 0, "ANTI": 0, "NEUTRAL": 0})
     interacoes = defaultdict(list)
 
     # Dentro do loop (acumulando):
-    user_stance_counts[author][stance] += 1
+    user_stance_counts[author][new_stance] += 1
     interacoes[(author, parent_author)].append(relation)
 
     # No final do script (construindo o grafo de fato):
     for user, counts in user_stance_counts.items():
         total = sum(counts.values())
+        if total == 0:
+            continue
         final_stance = max(counts, key=counts.get) # Moda
-        G.add_node(user, stance=final_stance, total_comments=total, ...)
+        G.add_node(
+            user, 
+            stance=final_stance, 
+            total_comments=total,
+            pro_ratio=round(counts["PRO"] / total, 2),
+            anti_ratio=round(counts["ANTI"] / total, 2),
+            neutral_ratio=round(counts["NEUTRAL"] / total, 2)
+        )
 
     for (u1, u2), relacoes in interacoes.items():
+        if u1 not in G.nodes or u2 not in G.nodes:
+            continue
         peso = len(relacoes)
-        sinal = 1 if sum(relacoes) >= 0 else -1
-        conflict_intensity = round(abs(sum(relacoes)) / peso, 2)
+        soma = sum(relacoes)
+        sinal = 1 if soma >= 0 else -1
+        # Fórmula Corrigida: 0.0 para consenso total, 1.0 para conflito máximo
+        conflict_intensity = round(1.0 - (abs(soma) / peso), 2)
         G.add_edge(u1, u2, weight=peso, sign=sinal, conflict_intensity=conflict_intensity)
 ```
 
-* **O que foi consertado:** Desacoplamos a classificação da construção do grafo. Acumulamos as interações em dicionários (`defaultdict(list)` e contadores). No final, o stance do usuário é definido pela **Moda** (maioria dos comentários) e o nó é exportado com métricas ricas (`total_comments`, `pro_ratio`, etc.). As arestas acumulam o `weight` real, o `sign` reflete a tendência geral da relação, e introduzimos o `conflict_intensity` (0 para relações pacíficas, 1 para conflito total), que permite colorir as arestas no Gephi por intensidade de discórdia.
+* **O que foi consertado:** Desacoplamos a classificação da construção do grafo. Acumulamos as interações em dicionários (`defaultdict(list)` e contadores). No final, o stance do usuário é definido pela **Moda** (maioria dos comentários) e o nó é exportado com métricas ricas (`total_comments`, `pro_ratio`, etc.). As arestas acumulam o `weight` real, o `sinal` reflete a tendência geral da relação, e a fórmula de `conflict_intensity` reflete a dispersão real de opiniões ($1.0 - \frac{|\sum \text{relações}|}{\text{peso}}$), atribuindo `0.0` para consenso e `1.0` para rivalidades de 50/50.
 
 ---
 
@@ -278,10 +307,10 @@ Post raiz (dataType=post)
 | :--- | :--- | :--- |
 | **LLM Raiz** | google/gemma-4-31b-it (OpenRouter BYOK) | 🟢 **Ancoragem exclusiva de posts raiz**. Cota de 14.4k RPD. max_tokens=10 previne erro 402. Parsing por startswith. |
 | **Motor de Poda** | BFS por nível real (não por depth do JSON) | 🟢 **Inovador**. Corta subárvores inteiras se o pai for NEUTRAL ou órfão. Economiza ~30-50% de GPU. |
-| **Filtro Slangs** | Regex com \b + lista expandida | 🟢 **Determinístico**. Resolve "bait", "low iq", "troll" sem falsos positivos ("inhabit", "trolley", "clownfish"). |
+| **Filtro Slangs** | Regex com \b + Janela de Negação | 🟢 **Determinístico**. Resolve "bait", "low iq", "troll" sem falsos positivos ("inhabit", "not bait", "trolley", "clownfish"). |
 | **NLI Local** | MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli | 🟢 **Máxima Precisão**. Processa inferências complexas em lote por nível. |
 | **Execução GPU** | PyTorch Batching (batch_size=32) | 🟢 **Ultrarrápido**. Inferência paralela otimizada em CUDA. |
-| **Construção do Grafo** | NetworkX Aggregation (moda + acúmulo) | 🟢 **Matematicamente Correto**. Agregação por moda de stance e acúmulo de arestas com conflict_intensity. |
+| **Construção do Grafo** | NetworkX Aggregation (moda + acúmulo) | 🟢 **Matematicamente Correto**. Agregação por moda de stance e acúmulo de arestas com conflict_intensity corrigido. |
 
 ---
 
