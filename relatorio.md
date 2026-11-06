@@ -44,7 +44,7 @@ A execução no dataset de 240 registros apresentou uma melhora significativa na
 | Métrica | Valor (v2 - antiga) | Valor (v3 - atual) |
 | :--- | :--- | :--- |
 | **Nós Iniciais (Grafo Bruto)** | 222 | 222 |
-| **Nós Podados** | 133 | 109 |
+| **Nós Podados** | 109 | 109 |
 | **Nós Retidos** | 89 | 113 |
 | **Nós de Contexto (Pontes)** | 17 | 22 |
 | **Taxa de Retenção** | ~40.1% | **~50.9%** |
@@ -74,13 +74,13 @@ Apesar da acurácia de ~80-85%, o modelo comete erros previsíveis que devem ser
 
 **Execução:**
     source .ARS/bin/activate
-    python ZeroShot.py BigScrape.json grafo_big2.gexf
+    python ZeroShot.py BigScrape.json v3_final_limiar65
 
 **Artefatos gerados pelo script (v3):**
 *   `pipeline.log`: Log estruturado com timestamps de toda a execução.
 *   `predictions_raw.json`: Classificação individual de cada nó (texto, stance e método usado: LLM, NLI ou ZERO_SHOT). Essencial para o Error Analysis.
 *   `audit.json`: Estatísticas macro da rede.
-*   `grafo_big2.gexf`: Arquivo final para o Gephi.
+*   `grafo.gexf`: Arquivo final para o Gephi.
 
 ---
 
@@ -126,3 +126,7 @@ Para atender aos rigorosos critérios de um artigo científico, a versão final 
 ### 7.3. Reprodutibilidade e Auditoria (Error Analysis)
 *   **Seed Global (`set_seed(42)`):** Configuração fixa de sementes aleatórias para Python, NumPy e PyTorch. Garante reprodutibilidade.
 *   **Exportação de `predictions_raw.json`:** O código salva um arquivo contendo o texto de cada nó, sua classificação final e qual método foi usado (`LLM`, `NLI` ou `ZERO_SHOT`). Isso permite escrever a seção de *Error Analysis* no artigo com precisão.
+
+### 7.4. Gestão de Experimentos (Isolamento de Artefatos)
+*   **Isolamento por Pasta:** O script agora aceita um nome de experimento como argumento (ex: `v3_final_limiar65`). Ele cria automaticamente a estrutura de diretórios `resultados/{experiment_name}/`.
+*   **Proteção contra Sobrescrita:** Todos os logs e arquivos gerados (`audit.json`, `predictions_raw.json`, `grafo.gexf`) são salvos dentro da pasta do experimento. Isso permite rodar múltiplos baselines (ex: `baseline_nli_puro`, `v2_limiar55`, `v3_limiar65`) sem que os resultados de um apaguem os do outro, garantindo a integridade dos dados comparativos para a seção de Resultados do artigo.

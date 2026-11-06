@@ -1,0 +1,24 @@
+{
+  "total_raw_records": 240,
+  "posts_count": 39,
+  "comments_count": 183,
+  "ignored_records": 16,
+  "orphan_comments": 4,
+  "initial_nodes_count": 222,
+  "pruned_nodes_count": 108,
+  "retained_nodes_count": 114,
+  "structural_context_nodes": 22,
+  "retention_rate": 51.35135135135135,
+  "stance_distribution": {
+    "counts": {
+      "PRO": 30,
+      "ANTI": 45,
+      "NEUTRAL": 0
+    },
+    "percentages": {
+      "PRO": 40.0,
+      "ANTI": 60.0,
+      "NEUTRAL": 0.0
+    }
+  }
+}
