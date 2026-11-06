@@ -1,0 +1,14 @@
+{
+  "total_raw_records": 240,
+  "communities_count": 2,
+  "posts_count": 39,
+  "comments_count": 199,
+  "ignored_records": 0,
+  "orphan_comments": 0,
+  "missing_parents": [],
+  "initial_nodes_count": 240,
+  "pruned_nodes_count": 6,
+  "retained_nodes_count": 234,
+  "structural_context_nodes": 4,
+  "retention_rate": 97.5
+}
