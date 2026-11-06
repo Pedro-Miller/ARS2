@@ -331,3 +331,78 @@ Com o GEXF gerado pela nova versão, o grafo está pronto para a análise topol�
 4. **Espessura das Arestas:** escalar pelo weight (frequência de interação) ou conflict_intensity (intensidade da discórdia).
 5. **Métricas de Coesão:** rodar Modularidade e Coeficiente de Clustering para comprovar o tribalismo (câmaras de eco) mapeado na apresentação inicial.
 6. **Detecção de Comunidades:** rodar Louvain e comparar as comunidades detectadas com os rótulos de stance — as fronteiras coincidem ou há usuários "ponte" entre os polos?
+
+# 6. Grande Scraping e Auditoria
+
+# Atualização de Auditoria: Testes de Estresse, Diagnóstico de Perdas e Soluções Metodológicas
+
+**Foco:** Análise de Resiliência do Grafo, Diagnóstico de Over-Pruning e Soluções de Topologia Híbrida  
+
+---
+
+## 1. Relatório de Estresse e Redução de Dados
+
+Foi realizada uma execução de teste e auditoria utilizando os relatórios `audit_estresse.json` e `BigScrape.json` para mensurar o impacto das regras de filtragem e da poda em cascata no grafo de discussão.
+
+### 1.1. Volumetria Geral
+* **Total de Nós Processados (Original):** **148 elementos** (postagens e comentários).
+* **Nós Aprovados (Final):** **32 elementos** (21,6% de retenção).
+* **Nós Podados/Eliminados:** **116 elementos** (78,4% de perda).
+
+### 1.2. Distribuição dos Nós Aprovados por Nível
+* **Nível 0 (Raiz / Postagens):** 22 postagens.
+* **Nível 1 (Comentários Diretos):** 8 comentários.
+* **Nível 2 (Tréplicas):** 2 comentários.
+* **Nível 3 (Tréplicas Profundas):** 0 comentários.
+
+---
+
+## 2. Detalhamento dos Motivos de Poda (`prune_reason`)
+
+Os 116 nós eliminados foram categorizados de acordo com as regras de poda executadas pelo algoritmo:
+
+1. **`ORPHAN_OR_PRUNED_PARENT` (Poda em Cascata):** **64 nós (55,2% das podas)**
+   * *Motivo:* Nó pertencente a uma subárvore cujo nó pai (ou raiz) foi eliminado previamente. A poda ocorreu para evitar a existência de nós órfãos desconectados do grafo principal.
+2. **`NEUTRAL_RELATION` (Filtro NLI/DeBERTa):** **36 nós (31,0% das podas)**
+   * *Motivo:* Comentário classificado como neutro ou sem posicionamento ideológico claro em relação ao post pai.
+3. **`ROOT_NEUTRAL_LLM` (Filtro de Ancoragem Raiz):** **9 nós (7,8% das podas)**
+   * *Motivo:* Postagem original (Nível 0) avaliada pelo LLM como neutra, informativa ou de questionamento aberto.
+4. **`EMPTY_TEXT_OR_BLOCKED_AUTHOR` (Sanitização Técnica):** **7 nós (6,0% das podas)**
+   * *Motivo:* Comentários de bots automáticos (`AutoModerator`), contas removidas (`[deleted]`) ou conteúdos puramente visuais sem texto.
+
+---
+
+## 3. Diagnóstico de Falhas e Erros de Classificação
+
+A auditoria qualitativa dos nós descartados revelou dois gargalos principais: **over-pruning (poda excessiva por dependência topológica)** e **falsos negativos na classificação NLI/LLM**.
+
+### 3.1. Efeito Dominó da Poda em Cascata (Over-Pruning)
+O descarte de raízes classificadas como neutras (`ROOT_NEUTRAL_LLM`) provocou a eliminação em massa de subárvores inteiras que continham debates altamente polarizados (`PRO` e `ANTI`). Como o filtro tratou a neutralidade da raiz como impeditivo estrutural, 64 comentários válidos foram eliminados unicamente por estarem vinculados a uma postagem neutra.
+
+### 3.2. Falsos Negativos do Modelo NLI (Comentários Neutros com Viés Real)
+Modelos formais NLI falharam ao identificar sarcasmo, gírias pejorativas e atritos político-ideológicos, marcando sentenças polarizadas como `NEUTRAL`:
+* **Uso de Pejorativos de Comunidade:** O uso do termo *"luddoid"* no comentário `t1_19s75tsb94ysg` (*"Yeah I stopped watching vaush when he became a luddoid..."*) foi ignorado pelo NLI, resultando em classificação neutra.
+* **Afirmações de Impacto de Mercado:** O comentário `t1_19s6p6asb3h7o` (*"...it's so over for artists"*) foi marcado como neutro, apesar de conter posicionamento explícito do debate.
+* **Ataques Diretos Motivados por IA:** O comentário `t1_19s2qr2duwqzn` (*"Andy weir is apparently a treasonous asshole, who decided to abandon..."*) foi descartado por falta de contradição proposicional formal.
+
+### 3.3. Análise Pragmática de Sujeito (O Caso `t1_19s6rs92m0gg0`)
+* **Texto:** *"I think pros are spending too much time on the 'debate' rather than talking about the tool..."*
+* **Falha de Interpretação:** A presença da palavra *"pros"* não indica auto-identificação do autor como Pro-IA. O autor refere-se ao grupo Pro-IA em 3ª pessoa ("*pros are spending...*"), estabelecendo um distanciamento crítico (postura Anti-IA / Crítica ao grupo Pro). O modelo atribuiu o viés oposto ao analisar a palavra de forma isolada.
+
+---
+
+## 4. Propostas de Ajustes Metodológicos e Suas Implicações
+
+Para conter a perda de dados e aumentar a precisão da classificação, são propensados três caminhos de otimização:
+
+### 4.1. Abrandamento da Poda de Raiz (Passada Dupla / Bottom-Up)
+* **Proposta:** Adotar uma verificação em duas etapas. Se uma raiz de Nível 0 for classificada como `NEUTRAL`, mas possuir ao menos um descendente (filho ou neto) classificado como `PRO` ou `ANTI`, a raiz é mantida no grafo marcada com a flag `is_context_only = True`.
+* **Implicação Pipeline:** Não quebra o algoritmo. A raiz permanece na estrutura do grafo para garantir a conectividade dos nós filhos, mas pode ser excluída dos cálculos estatísticos de distribuição de sentimentos da comunidade.
+
+### 4.2. Thresholding Dinâmico e Reavaliação de Gírias
+* **Proposta:** Se o modelo NLI DeBERTa retornar `NEUTRAL` com probabilidade inferior a 65% (`0.65`), e o texto contiver termos do dicionário de gatilhos (*"luddoid"*, *"slop"*, *"tech-bro"*, *"clown"*, *"it's so over"*), a sentença é submetida a uma segunda camada de inferência ou recebe ajuste de peso na classe não-neutra.
+* **Implicação Pipeline:** Evita a criação de regras rígidas baseadas apenas em palavras-chave (que ignoram negações) e reduz significativamente os falsos neutros sem inflar custos de API.
+
+### 4.3. Separação Entre Nó Estrutural e Nó Analítico
+* **Proposta:** Em vez de promover comentários órfãos a raízes ou re-anexá-los arbitrariamente (o que altera a topologia real da conversa), mantém-se o nó pai neutro como **Nó Estrutural** (`include_in_analysis = False`). O comentário filho permanece como **Nó Analítico** (`include_in_analysis = True`).
+* **Implicação Pipeline:** Preserva a topologia exata das discussões do Reddit no Gephi e impede a criação de arestas falsas ou descontextualizadas.

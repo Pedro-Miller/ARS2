@@ -1,5 +1,7 @@
 groq
 google-genai
+openai
+python-dotenv
 torch
 transformers
 networkx

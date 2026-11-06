@@ -144,9 +144,9 @@ def evaluate_nli_batch(pairs: list, batch_size: int = 32) -> list:
     return results
 
 # ---------------------------------------------------------------------------
-# 5. Processamento BFS, Poda e Construção do Grafo
+# 5. Processamento BFS, Poda e Construção do Grafo (com Auditoria)
 # ---------------------------------------------------------------------------
-def build_stance_graph(json_file_path: str, output_gexf_path: str):
+def build_stance_graph(json_file_path: str, output_gexf_path: str, audit_file_path: str = "audit_estresse.json"):
     with open(json_file_path, "r", encoding="utf-8") as f:
         posts_data = json.load(f)
     
@@ -194,13 +194,16 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
     
     print(f"Processando {len(items_by_level)} níveis de profundidade...")
     
-    # Estruturas de dados
+    # Estruturas de dados principais
     nodes_stance = {}
     node_text_map = {}
     node_author_map = {}
     user_stance_counts = defaultdict(lambda: {"PRO": 0, "ANTI": 0, "NEUTRAL": 0})
     interacoes = defaultdict(list)
     pruned_items = set()
+    
+    # Estrutura para Auditoria Detalhada
+    audit_records = []
     
     # Processamento Nível por Nível (BFS)
     for level in sorted(items_by_level.keys()):
@@ -216,31 +219,62 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
             title = item.get("title", "")
             body = item.get("body", "").strip()
             text = f"{title}\n{body}".strip() if title else body
+            parent_id = item.get("parentId") or item.get("postId")
             
             # Filtro de mídia pura / moderadores
             if not item_id or author in ["[deleted]", "AutoModerator"] or not text:
                 if item_id:
                     pruned_items.add(item_id)
                     n_pruned_this_level += 1
+                    audit_records.append({
+                        "id": item_id,
+                        "author": author,
+                        "level": level,
+                        "parent_id": parent_id,
+                        "text_snippet": text[:120].replace("\n", " "),
+                        "passed": False,
+                        "prune_reason": "EMPTY_TEXT_OR_BLOCKED_AUTHOR",
+                        "stance": "NEUTRAL",
+                        "method": "FILTER"
+                    })
                 continue
             
-            parent_id = item.get("parentId") or item.get("postId")
             node_text_map[item_id] = text
             node_author_map[item_id] = author
             
-            # Post Raiz (LLM - Única exceção permitida)
+            # Post Raiz (LLM)
             if item.get("dataType") == "post":
                 stance = classify_root_stance(text)
                 nodes_stance[item_id] = stance
-                
                 # Poda de Raiz Neutra
                 if stance == "NEUTRAL":
                     pruned_items.add(item_id)
                     n_pruned_this_level += 1
+                    audit_records.append({
+                        "id": item_id,
+                        "author": author,
+                        "level": level,
+                        "parent_id": None,
+                        "text_snippet": text[:120].replace("\n", " "),
+                        "passed": False,
+                        "prune_reason": "ROOT_NEUTRAL_LLM",
+                        "stance": "NEUTRAL",
+                        "method": "LLM"
+                    })
                     continue
-                
-                # Contabiliza o voto apenas se a raiz tiver posição
+                # Contabiliza o voto apenas se a raiz tiver posição                
                 user_stance_counts[author][stance] += 1
+                audit_records.append({
+                    "id": item_id,
+                    "author": author,
+                    "level": level,
+                    "parent_id": None,
+                    "text_snippet": text[:120].replace("\n", " "),
+                    "passed": True,
+                    "prune_reason": "PASSED_ROOT",
+                    "stance": stance,
+                    "method": "LLM"
+                })
                 continue
             
             # Poda de Órfãos (Pai não tem texto ou foi descartado)
@@ -248,6 +282,17 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
             if not parent_text or parent_id in pruned_items:
                 pruned_items.add(item_id)
                 n_pruned_this_level += 1
+                audit_records.append({
+                    "id": item_id,
+                    "author": author,
+                    "level": level,
+                    "parent_id": parent_id,
+                    "text_snippet": text[:120].replace("\n", " "),
+                    "passed": False,
+                    "prune_reason": "ORPHAN_OR_PRUNED_PARENT",
+                    "stance": "NEUTRAL",
+                    "method": "CASCADE"
+                })
                 continue
                 
             # Cinto de segurança: Pai não classificado
@@ -255,6 +300,17 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
                 print(f"[AVISO] Pai {parent_id} não classificado — pulando filho {item_id}")
                 pruned_items.add(item_id)
                 n_pruned_this_level += 1
+                audit_records.append({
+                    "id": item_id,
+                    "author": author,
+                    "level": level,
+                    "parent_id": parent_id,
+                    "text_snippet": text[:120].replace("\n", " "),
+                    "passed": False,
+                    "prune_reason": "PARENT_UNCLASSIFIED",
+                    "stance": "NEUTRAL",
+                    "method": "CASCADE"
+                })
                 continue
             
             # Pronto para NLI
@@ -276,7 +332,8 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
                 author = item_data["author"]
                 
                 parent_stance = nodes_stance[parent_id]
-                relation = -1 if check_slang_contradiction(item_data["text"]) else batch_rel
+                has_slang = check_slang_contradiction(item_data["text"])
+                relation = -1 if has_slang else batch_rel
                 
                 if relation == 1:
                     new_stance = parent_stance
@@ -287,18 +344,42 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
                 
                 nodes_stance[item_id] = new_stance
                 
-                # Poda de Neutros
+                # Registo de Auditoria NLI
+                method_used = "SLANG_REGEX" if has_slang else "NLI_DEBERTA"
                 if new_stance == "NEUTRAL":
                     pruned_items.add(item_id)
                     n_pruned_this_level += 1
+                    audit_records.append({
+                        "id": item_id,
+                        "author": author,
+                        "level": level,
+                        "parent_id": parent_id,
+                        "text_snippet": item_data["text"][:120].replace("\n", " "),
+                        "passed": False,
+                        "prune_reason": "NEUTRAL_RELATION",
+                        "stance": "NEUTRAL",
+                        "method": method_used
+                    })
                     continue
-                
+
                 # Acumulando votos e interações
                 user_stance_counts[author][new_stance] += 1
                 
                 parent_author = node_author_map.get(parent_id)
                 if parent_author and parent_author not in ["[deleted]", "AutoModerator"] and parent_author != author:
                     interacoes[(author, parent_author)].append(relation)
+
+                audit_records.append({
+                    "id": item_id,
+                    "author": author,
+                    "level": level,
+                    "parent_id": parent_id,
+                    "text_snippet": item_data["text"][:120].replace("\n", " "),
+                    "passed": True,
+                    "prune_reason": "PASSED_STANCE",
+                    "stance": new_stance,
+                    "method": method_used
+                })
         
         print(f"  Nível {level}: {len(level_items)} itens | {n_pruned_this_level} podados | {len(nli_pairs)} via NLI")
     
@@ -308,7 +389,7 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
     print("\nAgregando stances de usuários e construindo o grafo final...")
     
     G = nx.DiGraph()
-    
+
     # Nós (Moda do stance)
     for user, counts in user_stance_counts.items():
         total = sum(counts.values())
@@ -323,8 +404,8 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
             anti_ratio=round(counts["ANTI"] / total, 2),
             neutral_ratio=round(counts["NEUTRAL"] / total, 2)
         )
-    
-    # Arestas (Acúmulo + conflict_intensity corrigido)
+
+    # Arestas (Acúmulo + conflict_intensity corrigido)    
     for (u1, u2), relacoes in interacoes.items():
         if u1 not in G.nodes or u2 not in G.nodes:
             continue
@@ -342,7 +423,13 @@ def build_stance_graph(json_file_path: str, output_gexf_path: str):
     
     print(f"Exportando grafo com {G.number_of_nodes()} nós e {G.number_of_edges()} arestas...")
     nx.write_gexf(G, output_gexf_path)
-    print(f"Sucesso! Arquivo gerado em: {output_gexf_path}")
+    print(f"Sucesso! Arquivo de grafo gerado em: {output_gexf_path}")
+
+    # Exportação do relatório de Auditoria
+    print(f"Exportando relatório completo de auditoria...")
+    with open(audit_file_path, "w", encoding="utf-8") as f:
+        json.dump(audit_records, f, ensure_ascii=False, indent=2)
+    print(f"Sucesso! Auditoria salva em: {audit_file_path}")
 
 # ---------------------------------------------------------------------------
 # 6. Ponto de Entrada

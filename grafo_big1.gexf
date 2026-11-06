@@ -1,0 +1,521 @@
+<?xml version='1.0' encoding='utf-8'?>
+<gexf xmlns="http://www.gexf.net/1.2draft" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gexf.net/1.2draft http://www.gexf.net/1.2draft/gexf.xsd" version="1.2">
+  <meta lastmodifieddate="2026-11-06">
+    <creator>NetworkX 3.7</creator>
+  </meta>
+  <graph defaultedgetype="directed" mode="static" name="">
+    <attributes mode="static" class="edge">
+      <attribute id="5" title="sign" type="long" />
+      <attribute id="6" title="conflict_intensity" type="double" />
+    </attributes>
+    <attributes mode="static" class="node">
+      <attribute id="0" title="stance" type="string" />
+      <attribute id="1" title="total_comments" type="long" />
+      <attribute id="2" title="pro_ratio" type="double" />
+      <attribute id="3" title="anti_ratio" type="double" />
+      <attribute id="4" title="neutral_ratio" type="double" />
+    </attributes>
+    <nodes>
+      <node id="Quick-Somewhere-6474" label="Quick-Somewhere-6474">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="2" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Helpful_Height560" label="Helpful_Height560">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="AmilynRaziel" label="AmilynRaziel">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="2" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Desperate-Ball-4423" label="Desperate-Ball-4423">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="TheWrathfulMountain" label="TheWrathfulMountain">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Tet4edr0" label="Tet4edr0">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="2" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="NoFeedbackSorry" label="NoFeedbackSorry">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Lexabro-10mg" label="Lexabro-10mg">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Nsanford1142020" label="Nsanford1142020">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Samelflojo" label="Samelflojo">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="trux_ecs" label="trux_ecs">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="leastfire" label="leastfire">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Don_Corvo_o_unico" label="Don_Corvo_o_unico">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="TorlanBark" label="TorlanBark">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Hot_Background_7971" label="Hot_Background_7971">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="advprashantmali" label="advprashantmali">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="QuirkyCryptid" label="QuirkyCryptid">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="MGOsketches" label="MGOsketches">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="AnimalsChasingCars" label="AnimalsChasingCars">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="2" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="OrFenn-D-Gamer" label="OrFenn-D-Gamer">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Marydees_Repairmen" label="Marydees_Repairmen">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Practical_Mango2686" label="Practical_Mango2686">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Rare_Barracuda25" label="Rare_Barracuda25">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Mad_Hyrax" label="Mad_Hyrax">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="pusyloca" label="pusyloca">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="-UltraFerret-" label="-UltraFerret-">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="OkDragonfly5820" label="OkDragonfly5820">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="TheMorgueDonator" label="TheMorgueDonator">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="KinneKitsune" label="KinneKitsune">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Additional_Wave7982" label="Additional_Wave7982">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="2" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Future_Move_9372" label="Future_Move_9372">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="2" />
+          <attvalue for="2" value="0.5" />
+          <attvalue for="3" value="0.5" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Le_Oken" label="Le_Oken">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Wooden-Variety175" label="Wooden-Variety175">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="No_Wing_9087" label="No_Wing_9087">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="nyxcha0s" label="nyxcha0s">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="TwistedMindOfABrotha" label="TwistedMindOfABrotha">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="SuspiciousAlfalfa263" label="SuspiciousAlfalfa263">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Blue_Jay_Raptor" label="Blue_Jay_Raptor">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="MasqueradeOfSilence" label="MasqueradeOfSilence">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="thethingpeopledowhen" label="thethingpeopledowhen">
+        <attvalues>
+          <attvalue for="0" value="ANTI" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="0.0" />
+          <attvalue for="3" value="1.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="Animeisntrealnerd" label="Animeisntrealnerd">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+      <node id="jaidyynn" label="jaidyynn">
+        <attvalues>
+          <attvalue for="0" value="PRO" />
+          <attvalue for="1" value="1" />
+          <attvalue for="2" value="1.0" />
+          <attvalue for="3" value="0.0" />
+          <attvalue for="4" value="0.0" />
+        </attvalues>
+      </node>
+    </nodes>
+    <edges>
+      <edge source="AmilynRaziel" target="-UltraFerret-" id="0" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="-UltraFerret-" target="AmilynRaziel" id="1" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="OkDragonfly5820" target="Tet4edr0" id="2" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="TheMorgueDonator" target="NoFeedbackSorry" id="3" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="KinneKitsune" target="NoFeedbackSorry" id="4" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="Additional_Wave7982" target="Lexabro-10mg" id="5" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="Additional_Wave7982" target="Don_Corvo_o_unico" id="6" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="Future_Move_9372" target="Lexabro-10mg" id="7" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="Future_Move_9372" target="Additional_Wave7982" id="8" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="Le_Oken" target="Samelflojo" id="9" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="Wooden-Variety175" target="Samelflojo" id="10" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="No_Wing_9087" target="Samelflojo" id="11" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="nyxcha0s" target="trux_ecs" id="12" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="TwistedMindOfABrotha" target="TorlanBark" id="13" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="SuspiciousAlfalfa263" target="TorlanBark" id="14" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="Blue_Jay_Raptor" target="advprashantmali" id="15" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="MasqueradeOfSilence" target="advprashantmali" id="16" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="thethingpeopledowhen" target="advprashantmali" id="17" weight="1">
+        <attvalues>
+          <attvalue for="5" value="1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="Animeisntrealnerd" target="OrFenn-D-Gamer" id="18" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+      <edge source="jaidyynn" target="Rare_Barracuda25" id="19" weight="1">
+        <attvalues>
+          <attvalue for="5" value="-1" />
+          <attvalue for="6" value="0.0" />
+        </attvalues>
+      </edge>
+    </edges>
+  </graph>
+</gexf>
