@@ -5,19 +5,19 @@
   "ignored_records": 16,
   "orphan_comments": 4,
   "initial_nodes_count": 222,
-  "pruned_nodes_count": 133,
-  "retained_nodes_count": 89,
-  "structural_context_nodes": 17,
-  "retention_rate": 40.090090090090094,
+  "pruned_nodes_count": 109,
+  "retained_nodes_count": 113,
+  "structural_context_nodes": 22,
+  "retention_rate": 50.9009009009009,
   "stance_distribution": {
     "counts": {
-      "PRO": 24,
-      "ANTI": 39,
+      "PRO": 30,
+      "ANTI": 44,
       "NEUTRAL": 0
     },
     "percentages": {
-      "PRO": 38.1,
-      "ANTI": 61.9,
+      "PRO": 40.54,
+      "ANTI": 59.46,
       "NEUTRAL": 0.0
     }
   }
