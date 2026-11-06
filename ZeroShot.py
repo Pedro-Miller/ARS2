@@ -1,405 +1,403 @@
+import os
 import sys
 import json
-import logging
-from collections import Counter
+import re
+import torch
+import networkx as nx
+from collections import defaultdict, Counter
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Any, Optional, Set
-import networkx as nx
-import torch
-from transformers import pipeline, AutoTokenizer, AutoModelForSequenceClassification
+from dotenv import load_dotenv
+from openai import OpenAI
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, pipeline
 
 # ---------------------------------------------------------------------------
-# Configuração de Logging
+# 1. Configuração do Ambiente e LLM (OpenRouter via BYOK)
 # ---------------------------------------------------------------------------
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s"
-)
-logger = logging.getLogger("ZeroShotPipeline")
+load_dotenv()
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "google/gemma-4-31b-it")
+
+if not OPENROUTER_API_KEY:
+    raise ValueError("A variável OPENROUTER_API_KEY não foi encontrada no arquivo .env!")
+
+llm_client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=OPENROUTER_API_KEY)
 
 # ---------------------------------------------------------------------------
-# Estruturas de Auditoria e Dados
+# 2. Estruturas de Auditoria e Dados
 # ---------------------------------------------------------------------------
 @dataclass
 class AuditMetrics:
     total_raw_records: int = 0
-    communities_count: int = 0
     posts_count: int = 0
     comments_count: int = 0
     ignored_records: int = 0
     orphan_comments: int = 0
-    missing_parents: List[str] = field(default_factory=list)
     initial_nodes_count: int = 0
     pruned_nodes_count: int = 0
     retained_nodes_count: int = 0
     structural_context_nodes: int = 0
     retention_rate: float = 0.0
-    # Métrica estendida: Distribuição sociológica de Stance no Grafo Retido
     stance_distribution: Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class NodeData:
     id: str
-    parsed_id: str
-    data_type: str  # 'community', 'post', 'comment'
+    author: str
     text_content: str
-    author: Optional[str] = None
+    data_type: str
     parent_id: Optional[str] = None
-    post_id: Optional[str] = None
-    community_name: Optional[str] = None
-    stance_absoluto: Optional[str] = None  # PRO, ANTI, NEUTRAL
-    stance_score: Optional[float] = None
+    stance_absoluto: str = "NEUTRAL"
+    stance_score: float = 0.0
     is_context_only: bool = False
-    metadata: Dict[str, Any] = field(default_factory=dict)
 
 # ---------------------------------------------------------------------------
-# Filtro de Slang (Gírias) - Task 1.3
+# 3. Filtro Determinístico de Slangs (Regex + Janela de Negação)
 # ---------------------------------------------------------------------------
-SLANG_DISAGREE_KEYWORDS = {
-    "cap", "crap", "bs", "bullshit", "lmao no", "cope", "ratio",
-    "brainrot", "delusional", "fake news", "nah", "wth", "tf"
-}
+OPPOSITION_SLANG = [
+    r"bait", r"baits", r"baiting", r"baited", r"rage\s*bait", 
+    r"low\s*iq", r"copium", r"clowns?", r"trolls?", r"trolling", 
+    r"trolled", r"delusional", r"schizo", r"1st\s*quartile",
+    r"cap", r"crap", r"bs", r"bullshit", r"lmao no", r"cope", 
+    r"ratio", r"brainrot", r"fake news", r"nah", r"wth", r"tf"
+]
+NEGATIONS = {"not", "no", "isn't", "isnt", "neither", "never", "não", "nao"}
 
-def check_slang_override(text: str) -> bool:
-    """Retorna True se o texto contiver gírias explícitas de discordância."""
+def check_slang_contradiction(text: str) -> bool:
     text_lower = text.lower()
-    return any(kw in text_lower for kw in SLANG_DISAGREE_KEYWORDS)
+    words = re.findall(r'\b\w+\b', text_lower)
+    for slang in OPPOSITION_SLANG:
+        match = re.search(rf"\b{slang}\b", text_lower)
+        if match:
+            matched_word = match.group(0).split()[0]
+            if matched_word in words:
+                idx = words.index(matched_word)
+                prev_words = words[max(0, idx - 3):idx]
+                if any(neg in prev_words for neg in NEGATIONS):
+                    return False
+            return True
+    return False
 
 # ---------------------------------------------------------------------------
-# Pipeline Principal (ZeroShot + NLI + Bottom-Up + Gephi)
+# 4. Pipeline Híbrido
 # ---------------------------------------------------------------------------
-class ZeroShotDebatePipeline:
-    def __init__(
-        self,
-        deberta_model_name: str = "cross-encoder/nli-deberta-v3-base",
-        zero_shot_model_name: str = "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli",
-        candidate_labels: List[str] = None
-    ):
+class HybridPipeline:
+    def __init__(self):
         self.audit = AuditMetrics()
         self.nodes: Dict[str, NodeData] = {}
-        self.graph = nx.DiGraph()
-        self.device = 0 if torch.cuda.is_available() else -1
+        self.comment_tree = nx.DiGraph()
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        
+        # 1. Modelo NLI Large
+        nli_name = "MoritzLaurer/DeBERTa-v3-large-mnli-fever-anli-ling-wanli"
+        print(f"Carregando NLI Large ({nli_name})...")
+        self.nli_tokenizer = AutoTokenizer.from_pretrained(nli_name)
+        self.nli_model = AutoModelForSequenceClassification.from_pretrained(nli_name)
+        self.nli_model.eval().to(self.device)
 
-        # Candidate labels bidirecionais (Suporte + Ataque)
-        self.candidate_labels = candidate_labels or [
+        # 2. Zero-Shot NLI Base
+        zs_name = "MoritzLaurer/DeBERTa-v3-base-mnli-fever-anli"
+        print(f"Carregando Zero-Shot NLI ({zs_name})...")
+        self.zs_classifier = pipeline(
+            "zero-shot-classification", model=zs_name, device=0 if torch.cuda.is_available() else -1
+        )
+        self.zs_labels = [
             "supporting generative AI, praising AI art, or criticizing anti-AI artists",
             "opposing generative AI, criticizing AI art, or attacking pro-AI users",
-            "neutral, off-topic, spam, or purely informational comment"
+            "neutral, off-topic, or purely informational"
         ]
-        self.label_mapping = {
-            self.candidate_labels[0]: "PRO",
-            self.candidate_labels[1]: "ANTI",
-            self.candidate_labels[2]: "NEUTRAL"
-        }
+        self.zs_mapping = {self.zs_labels[0]: "PRO", self.zs_labels[1]: "ANTI", self.zs_labels[2]: "NEUTRAL"}
 
-        # Classificador Zero-Shot para Nó
-        logger.info(f"Carregando Zero-Shot Classifier ({zero_shot_model_name})...")
-        self.zero_shot_classifier = pipeline(
-            "zero-shot-classification",
-            model=zero_shot_model_name,
-            device=self.device
+    def classify_root_llm(self, text: str) -> str:
+        prompt = (
+            "Você é um classificador especialista em análise de postura (stance classification) no Reddit (r/aiwars).\n"
+            "Analise a atitude do autor em relação ao tema: 'Uso de Inteligência Artificial na Arte'.\n\n"
+            "Categorias permitidas:\n"
+            "- PRO: Apoia, defende ou usa sarcasmo/memes para zombar dos críticos de IA ('antis').\n"
+            "- ANTI: Rejeita, critica ou usa sarcasmo/memes para zombar de entusiastas de IA ('pro-AI' / 'AI bros').\n"
+            "- NEUTRAL: Informativo, dúvidas, perguntas abertas ou sem opinião clara.\n\n"
+            "Instrução: Responda estritamente com UMA única palavra (PRO, ANTI ou NEUTRAL).\n"
+            f"Texto: \"{text}\""
         )
+        try:
+            response = llm_client.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model=OPENROUTER_MODEL, temperature=0.0, max_tokens=10
+            )
+            result = response.choices[0].message.content.strip().upper()
+            if result.startswith("PRO"): return "PRO"
+            if result.startswith("ANTI"): return "ANTI"
+            return "NEUTRAL"
+        except Exception as e:
+            print(f"[ERRO LLM] {e}")
+            return "NEUTRAL"
 
-        # Modelo NLI para Arestas
-        logger.info(f"Carregando NLI Cross-Encoder ({deberta_model_name})...")
-        self.nli_tokenizer = AutoTokenizer.from_pretrained(deberta_model_name)
-        self.nli_model = AutoModelForSequenceClassification.from_pretrained(deberta_model_name)
-        if torch.cuda.is_available():
-            self.nli_model = self.nli_model.to("cuda")
-        self.nli_model.eval()
+    def zero_shot_stance(self, text: str) -> tuple[str, float]:
+        res = self.zs_classifier(text, candidate_labels=self.zs_labels, multi_label=False)
+        top_label = res["labels"][0]
+        top_score = res["scores"][0]
+        
+        # Se a classificação neutra estiver com score baixo, pega o polo mais forte
+        if top_label == self.zs_labels[2] and top_score < 0.55:
+            for label, score in zip(res["labels"], res["scores"]):
+                if label != self.zs_labels[2]:
+                    top_label, top_score = label, score
+                    break
+        return self.zs_mapping[top_label], top_score
 
-    def load_data(self, file_path: str):
-        logger.info(f"Carregando dados de: {file_path}")
-        with open(file_path, 'r', encoding='utf-8') as f:
+    def evaluate_nli_batch(self, pairs: list, batch_size: int = 32) -> list:
+        results = []
+        for i in range(0, len(pairs), batch_size):
+            batch = pairs[i:i + batch_size]
+            inputs = self.nli_tokenizer([p[0] for p in batch], [p[1] for p in batch], 
+                                        truncation=True, padding=True, max_length=512, return_tensors="pt").to(self.device)
+            with torch.no_grad():
+                preds = torch.argmax(self.nli_model(**inputs).logits, dim=1).cpu().tolist()
+            for pred in preds:
+                label = self.nli_model.config.id2label[pred].lower()
+                if "entailment" in label: results.append(1)
+                elif "contradiction" in label: results.append(-1)
+                else: results.append(0)
+        return results
+
+    def load_data(self, filepath: str):
+        with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
-
+        
         self.audit.total_raw_records = len(data)
-
         for entry in data:
-            data_type = entry.get("dataType")
-            node_id = entry.get("id")
-
-            if not node_id or not data_type:
+            if not isinstance(entry, dict) or entry.get("dataType") == "community":
+                continue
+            
+            item_id = entry.get("id")
+            author = entry.get("username") or "[deleted]"
+            if not item_id or author in ["[deleted]", "AutoModerator"]:
+                self.audit.ignored_records += 1
+                continue
+                
+            title, body = entry.get("title", ""), entry.get("body", "").strip()
+            text = f"{title}\n{body}".strip() if title else body
+            if not text:
                 self.audit.ignored_records += 1
                 continue
 
-            if data_type == "community":
-                self.audit.communities_count += 1
-                text = f"{entry.get('title', '')} {entry.get('description', '')}".strip()
-                self.nodes[node_id] = NodeData(
-                    id=node_id,
-                    parsed_id=entry.get("parsedId", node_id),
-                    data_type=data_type,
-                    text_content=text,
-                    metadata={"url": entry.get("url")}
-                )
-
-            elif data_type == "post":
-                self.audit.posts_count += 1
-                title = entry.get("title", "")
-                body = entry.get("body", "")
-                text = f"{title}\n{body}".strip()
-                self.nodes[node_id] = NodeData(
-                    id=node_id,
-                    parsed_id=entry.get("parsedId", node_id),
-                    data_type=data_type,
-                    text_content=text,
-                    author=entry.get("username"),
-                    community_name=entry.get("parsedCommunityName") or entry.get("communityName"),
-                    metadata={"url": entry.get("url"), "upVotes": entry.get("upVotes")}
-                )
-
-            elif data_type == "comment":
-                self.audit.comments_count += 1
-                body = entry.get("body", "").strip()
-                parent_id = entry.get("parentId")
-                post_id = entry.get("postId")
-                effective_parent = parent_id if parent_id else post_id
-
-                self.nodes[node_id] = NodeData(
-                    id=node_id,
-                    parsed_id=entry.get("parsedId", node_id),
-                    data_type=data_type,
-                    text_content=body,
-                    author=entry.get("username"),
-                    parent_id=effective_parent,
-                    post_id=post_id,
-                    community_name=entry.get("communityName"),
-                    metadata={"depth": entry.get("depth", 0), "upVotes": entry.get("upVotes")}
-                )
-
-        logger.info(f"Dados carregados. Total de nós válidos: {len(self.nodes)}")
-
-    def classify_nodes_zeroshot(self, batch_size: int = 32):
-        logger.info("Iniciando classificação Zero-Shot dos nós...")
-        node_list = list(self.nodes.values())
-        prompts = []
-
-        for node in node_list:
-            if node.parent_id and node.parent_id in self.nodes:
-                parent_text = self.nodes[node.parent_id].text_content
-                formatted_input = (
-                    f"Target Topic: Generative AI and AI Art Debate\n"
-                    f"[CONTEXTO PAI]: {parent_text}\n"
-                    f"[RESPOSTA FILHO]: {node.text_content}"
-                )
-            else:
-                formatted_input = (
-                    f"Target Topic: Generative AI and AI Art Debate\n"
-                    f"[POST/CONTEÚDO]: {node.text_content}"
-                )
-            prompts.append(formatted_input)
-
-        for i in range(0, len(prompts), batch_size):
-            batch_prompts = prompts[i:i + batch_size]
-            results = self.zero_shot_classifier(
-                batch_prompts,
-                candidate_labels=self.candidate_labels,
-                multi_label=False
+            parent_id = entry.get("parentId") or entry.get("postId")
+            
+            node = NodeData(
+                id=item_id, author=author, text_content=text, 
+                data_type=entry.get("dataType"), parent_id=parent_id
             )
+            self.nodes[item_id] = node
+            
+            if node.data_type == "post": self.audit.posts_count += 1
+            else: self.audit.comments_count += 1
 
-            if isinstance(results, dict):
-                results = [results]
-
-            for j, res in enumerate(results):
-                node_obj = node_list[i + j]
-                top_label = res["labels"][0]
-                top_score = res["scores"][0]
-
-                neutral_label = self.candidate_labels[2]
-                if top_label == neutral_label and top_score < 0.50:
-                    for label, score in zip(res["labels"], res["scores"]):
-                        if label != neutral_label:
-                            top_label = label
-                            top_score = score
-                            break
-
-                node_obj.stance_absoluto = self.label_mapping.get(top_label, "NEUTRAL")
-                node_obj.stance_score = float(top_score)
-
-        logger.info("Classificação Zero-Shot de nós concluída.")
-
-    def _predict_nli_relation(self, parent_text: str, child_text: str) -> int:
-        inputs = self.nli_tokenizer(
-            parent_text,
-            child_text,
-            truncation=True,
-            max_length=512,
-            return_tensors="pt"
-        )
-        if torch.cuda.is_available():
-            inputs = {k: v.to("cuda") for k, v in inputs.items()}
-
-        with torch.no_grad():
-            outputs = self.nli_model(**inputs)
-            probs = torch.softmax(outputs.logits, dim=-1).squeeze(0)
-            label_id = torch.argmax(probs).item()
-
-        if label_id == 0:
-            return 1
-        elif label_id == 2:
-            return -1
-        return 0
-
-    def build_graph_edges(self):
-        logger.info("Construindo arestas NLI e aplicando pré-filtro de slang...")
-
-        for node_id, node in self.nodes.items():
-            self.graph.add_node(
-                node_id,
-                parsed_id=node.parsed_id,
-                data_type=node.data_type,
-                author=node.author or "unknown",
-                stance_absoluto=node.stance_absoluto,
-                stance_score=node.stance_score,
-                is_context_only=False,
-                text_content=node.text_content
-            )
-
-        for node_id, node in self.nodes.items():
+    def build_tree_and_classify(self):
+        print("Classificando árvore e construindo nós...")
+        
+        # 1. Construir Grafo de Comentários Temporário
+        for nid, node in self.nodes.items():
+            self.comment_tree.add_node(nid, stance="NEUTRAL")
             if node.parent_id and node.parent_id in self.nodes:
-                parent_node = self.nodes[node.parent_id]
-
-                if check_slang_override(node.text_content):
-                    edge_sign = -1
-                else:
-                    edge_sign = self._predict_nli_relation(
-                        parent_text=parent_node.text_content,
-                        child_text=node.text_content
-                    )
-
-                self.graph.add_edge(
-                    node.parent_id,
-                    node_id,
-                    sign=edge_sign,
-                    weight=abs(edge_sign) if edge_sign != 0 else 0.1
-                )
+                self.comment_tree.add_edge(node.parent_id, nid)
             elif node.data_type == "comment":
                 self.audit.orphan_comments += 1
 
+        # 2. Classificação Nível por Nível (Raízes primeiro)
+        depth_cache = {}
+        def get_level(nid, seen=None):
+            if nid in depth_cache: return depth_cache[nid]
+            seen = seen or set()
+            if nid in seen: return 0
+            seen.add(nid)
+            node = self.nodes[nid]
+            if node.data_type == "post" or not node.parent_id or node.parent_id not in self.nodes:
+                depth_cache[nid] = 0
+                return 0
+            lvl = get_level(node.parent_id, seen) + 1
+            depth_cache[nid] = lvl
+            return lvl
+
+        levels = defaultdict(list)
+        for nid in self.nodes:
+            levels[get_level(nid)].append(nid)
+
+        nli_queue = []
+        nli_ids = []
+        zs_queue = []
+        zs_ids = []
+
+        for lvl in sorted(levels.keys()):
+            for nid in levels[lvl]:
+                node = self.nodes[nid]
+                
+                # A) LLM EXCLUSIVO NA RAIZ (Posts)
+                if node.data_type == "post":
+                    stance = self.classify_root_llm(node.text_content)
+                    self.comment_tree.nodes[nid]["stance"] = stance
+                    self.nodes[nid].stance_absoluto = stance
+                    continue
+
+                # B) COMENTÁRIOS
+                parent_exists = node.parent_id and node.parent_id in self.nodes
+                parent_stance = self.nodes[node.parent_id].stance_absoluto if parent_exists else "NEUTRAL"
+                parent_text = self.nodes[node.parent_id].text_content if parent_exists else ""
+
+                if not parent_exists or parent_stance == "NEUTRAL":
+                    # Se é órfão ou pai é neutro, usa Zero-Shot NLI no próprio texto
+                    zs_queue.append(node.text_content)
+                    zs_ids.append(nid)
+                else:
+                    # Pai tem posição. Enfileira para o NLI Batch (Relação).
+                    nli_queue.append((parent_text[:1000], node.text_content))
+                    nli_ids.append(nid)
+
+        # 3. Processar Zero-Shot (Neutros e Órfãos)
+        if zs_queue:
+            print(f"Processando {len(zs_queue)} classificações Zero-Shot...")
+            zs_results = self.zs_classifier(zs_queue, candidate_labels=self.zs_labels, multi_label=False, batch_size=32)
+            for nid, res in zip(zs_ids, zs_results):
+                top_label = res["labels"][0]
+                top_score = res["scores"][0]
+                if top_label == self.zs_labels[2] and top_score < 0.55:
+                    for label, score in zip(res["labels"], res["scores"]):
+                        if label != self.zs_labels[2]:
+                            top_label, top_score = label, score
+                            break
+                stance = self.zs_mapping[top_label]
+                self.nodes[nid].stance_absoluto = stance
+                self.nodes[nid].stance_score = top_score
+                self.comment_tree.nodes[nid]["stance"] = stance
+
+        # 4. Processar NLI (Relações com Pais Polarizados)
+        if nli_queue:
+            print(f"Processando {len(nli_queue)} relações NLI...")
+            batch_rels = self.evaluate_nli_batch(nli_queue)
+            for nid, rel in zip(nli_ids, batch_rels):
+                node = self.nodes[nid]
+                parent_stance = self.nodes[node.parent_id].stance_absoluto
+                
+                # Filtro de Slang força contradição
+                if check_slang_contradiction(node.text_content):
+                    rel = -1
+                
+                if rel == 1:
+                    node.stance_absoluto = parent_stance
+                elif rel == -1:
+                    node.stance_absoluto = "ANTI" if parent_stance == "PRO" else "PRO"
+                else:
+                    node.stance_absoluto = "NEUTRAL"
+                
+                self.comment_tree.nodes[nid]["stance"] = node.stance_absoluto
+
     def prune_bottom_up(self):
-        logger.info("Executando Poda Bottom-Up e resgate de nós estruturais...")
-        self.audit.initial_nodes_count = self.graph.number_of_nodes()
+        print("Executando Poda Bottom-Up (Estrutural)...")
+        self.audit.initial_nodes_count = self.comment_tree.number_of_nodes()
+        
+        # Ordenação Topológica Reversa (Folhas para Raízes)
+        topo_order = list(nx.topological_sort(self.comment_tree))
+        nodes_sorted = reversed(topo_order)
 
-        topological_depth = {}
-        for node_id in self.graph.nodes():
-            ancestors = nx.ancestors(self.graph, node_id)
-            topological_depth[node_id] = len(ancestors)
+        has_polarized_descendant = {}
+        nodes_to_remove = set()
 
-        nodes_sorted = sorted(
-            self.graph.nodes(data=True),
-            key=lambda x: topological_depth[x[0]],
-            reverse=True
-        )
+        for nid in nodes_sorted:
+            node = self.nodes[nid]
+            successors = list(self.comment_tree.successors(nid))
+            
+            is_polarized = node.stance_absoluto in ["PRO", "ANTI"]
+            desc_polarized = any(has_polarized_descendant.get(s, False) for s in successors)
+            
+            is_useful = is_polarized or desc_polarized
+            has_polarized_descendant[nid] = is_useful
 
-        has_polarized_descendant: Dict[str, bool] = {}
-        nodes_to_remove: Set[str] = set()
-
-        for node_id, data in nodes_sorted:
-            stance = data.get("stance_absoluto")
-            successors = list(self.graph.successors(node_id))
-
-            is_polarized = stance in ["PRO", "ANTI"]
-            descendants_polarized = any(
-                has_polarized_descendant.get(succ, False) for succ in successors
-            )
-
-            is_useful = is_polarized or descendants_polarized
-            has_polarized_descendant[node_id] = is_useful
-
-            if stance == "NEUTRAL":
-                if descendants_polarized:
-                    self.graph.nodes[node_id]["is_context_only"] = True
-                    self.nodes[node_id].is_context_only = True
+            if node.stance_absoluto == "NEUTRAL":
+                if desc_polarized:
+                    node.is_context_only = True
                     self.audit.structural_context_nodes += 1
                 else:
-                    nodes_to_remove.add(node_id)
+                    nodes_to_remove.add(nid)
 
-        for n_id in nodes_to_remove:
-            self.graph.remove_node(n_id)
+        for nid in nodes_to_remove:
+            self.comment_tree.remove_node(nid)
 
         self.audit.pruned_nodes_count = len(nodes_to_remove)
-        self.audit.retained_nodes_count = self.graph.number_of_nodes()
-        self.audit.retention_rate = (
-            self.audit.retained_nodes_count / max(1, self.audit.initial_nodes_count)
-        ) * 100
+        self.audit.retained_nodes_count = self.comment_tree.number_of_nodes()
+        self.audit.retention_rate = (self.audit.retained_nodes_count / max(1, self.audit.initial_nodes_count)) * 100
 
-        logger.info(
-            f"Poda concluída: {self.audit.pruned_nodes_count} nós removidos. "
-            f"Retenção final: {self.audit.retention_rate:.2f}% "
-            f"({self.audit.structural_context_nodes} nós neutros estruturais salvos)."
-        )
+    def aggregate_users_to_gephi(self, output_gephi: str, output_audit: str):
+        print("Agregando usuários e gerando GEXF final...")
+        
+        G = nx.DiGraph()
+        user_stances = defaultdict(list)
+        interacoes = defaultdict(list)
 
-    def aggregate_user_stances(self):
-        user_stances = {}
-        for _, data in self.graph.nodes(data=True):
-            author = data.get("author")
-            stance = data.get("stance_absoluto")
-            if author and author != "unknown" and stance:
-                user_stances.setdefault(author, []).append(stance)
+        for nid in self.comment_tree.nodes():
+            node = self.nodes[nid]
+            
+            # Agrega apenas se não for contexto puro
+            if not node.is_context_only and node.stance_absoluto != "NEUTRAL":
+                user_stances[node.author].append(node.stance_absoluto)
 
-        user_mode = {}
+            # Adiciona aresta de interação
+            if node.parent_id and node.parent_id in self.comment_tree.nodes():
+                parent_author = self.nodes[node.parent_id].author
+                if parent_author != node.author and parent_author not in ["[deleted]", "AutoModerator"]:
+                    # Lógica de Sinal de Interação
+                    if node.stance_absoluto == "NEUTRAL" or self.nodes[node.parent_id].stance_absoluto == "NEUTRAL":
+                        rel = 0
+                    elif node.stance_absoluto == self.nodes[node.parent_id].stance_absoluto:
+                        rel = 1
+                    else:
+                        rel = -1
+                    
+                    interacoes[(node.author, parent_author)].append(rel)
+
+        # Nós (Aggregation por Moda)
         for author, stances in user_stances.items():
             mode_stance = Counter(stances).most_common(1)[0][0]
-            user_mode[author] = mode_stance
+            pro = stances.count("PRO") / len(stances)
+            anti = stances.count("ANTI") / len(stances)
+            G.add_node(author, stance=mode_stance, total=len(stances), pro_ratio=round(pro, 2), anti_ratio=round(anti, 2))
 
-        for node_id, data in self.graph.nodes(data=True):
-            author = data.get("author")
-            self.graph.nodes[node_id]["user_stance_mode"] = user_mode.get(author, "NEUTRAL")
+        # Arestas (Correção de conflito e sinal neutro)
+        for (u1, u2), rels in interacoes.items():
+            if u1 in G.nodes and u2 in G.nodes:
+                peso = len(rels)
+                soma = sum(rels)
+                
+                if soma > 0:
+                    sinal = 1
+                elif soma < 0:
+                    sinal = -1
+                else:
+                    sinal = 0 
+                
+                conflict = round(abs(soma) / peso, 2) if soma != 0 else 0.0
+                
+                G.add_edge(u1, u2, weight=peso, sign=sinal, conflict_intensity=conflict)
 
-    def _compute_stance_metrics(self):
-        """Calcula as contagens e porcentagens de Stance no Grafo Retido."""
+        # Estatísticas Finais
         counts = {"PRO": 0, "ANTI": 0, "NEUTRAL": 0}
-        total = self.graph.number_of_nodes()
+        for _, data in G.nodes(data=True):
+            counts[data["stance"]] += 1
+        self.audit.stance_distribution = {"counts": counts, "percentages": {k: round((v/max(1, G.number_of_nodes()))*100, 2) for k, v in counts.items()}}
 
-        for _, data in self.graph.nodes(data=True):
-            stance = data.get("stance_absoluto", "NEUTRAL")
-            if stance in counts:
-                counts[stance] += 1
-            else:
-                counts["NEUTRAL"] += 1
-
-        pcts = {
-            k: round((v / max(1, total)) * 100, 2)
-            for k, v in counts.items()
-        }
-
-        self.audit.stance_distribution = {
-            "counts": counts,
-            "percentages": pcts
-        }
-
-    def export_gephi(self, output_gexf_path: str = "debate_graph.gexf", audit_path: str = "audit.json"):
-        self.aggregate_user_stances()
-        self._compute_stance_metrics()
-
-        for node_id, data in self.graph.nodes(data=True):
-            self.graph.nodes[node_id]["include_in_analysis"] = str(not data.get("is_context_only", False))
-            self.graph.nodes[node_id]["is_context_only"] = str(data.get("is_context_only", False))
-
-        logger.info(f"Exportando grafo para Gephi em {output_gexf_path}...")
-        nx.write_gexf(self.graph, output_gexf_path)
-
-        logger.info(f"Exportando relatório de auditoria em {audit_path}...")
-        with open(audit_path, "w", encoding="utf-8") as f:
+        nx.write_gexf(G, output_gephi)
+        with open(output_audit, "w", encoding="utf-8") as f:
             json.dump(asdict(self.audit), f, indent=2, ensure_ascii=False)
-
-        logger.info("Pipeline concluído com sucesso!")
+        
+        print(f"Sucesso! Grafo: {G.number_of_nodes()} nós, {G.number_of_edges()} arestas.")
 
 # ---------------------------------------------------------------------------
 # Execução Principal
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    input_file = sys.argv[1] if len(sys.argv) > 1 else "BigScrape.json"
-    output_gexf = sys.argv[2] if len(sys.argv) > 2 else "debate_graph.gexf"
+    input_file = sys.argv[1] if len(sys.argv) > 1 else "dados.json"
+    output_gexf = sys.argv[2] if len(sys.argv) > 2 else "grafo_final.gexf"
 
-    pipeline_runner = ZeroShotDebatePipeline()
-
+    pipeline_runner = HybridPipeline()
     pipeline_runner.load_data(input_file)
-    pipeline_runner.classify_nodes_zeroshot(batch_size=32)
-    pipeline_runner.build_graph_edges()
+    pipeline_runner.build_tree_and_classify()
     pipeline_runner.prune_bottom_up()
-    pipeline_runner.export_gephi(
-        output_gexf_path=output_gexf,
-        audit_path="audit.json"
-    )
+    pipeline_runner.aggregate_users_to_gephi(output_gexf, "audit.json")

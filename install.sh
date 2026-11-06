@@ -31,13 +31,13 @@ echo "==> Instalação otimizada do PyTorch (CUDA 12.1)..."
 python3 -m pip install torch --extra-index-url https://download.pytorch.org/whl/cu121
 
 # 5. Instalar dependências adicionais do projeto
-echo "==> Instalando dependências do projeto..."
+echo "==> Instalando dependências do projeto (requirements.txt)..."
 if [ -f "requirements.txt" ]; then
     python3 -m pip install -r requirements.txt
+else
+    echo "Erro: requirements.txt não encontrado!"
+    exit 1
 fi
-
-# Garantia de instalação direta de todos os pacotes críticos para evitar ModuleNotFoundError
-python3 -m pip install groq google-genai openai python-dotenv transformers networkx pandas accelerate sentencepiece
 
 # 6. Checagem ativa de GPU/CUDA no PyTorch
 echo "==> Testando suporte a GPU (CUDA) no PyTorch..."
@@ -53,8 +53,8 @@ fi
 
 echo "=========================================================="
 echo " Instalação concluída com sucesso em $(uname -s)!"
-echo " Para rodar a pipeline:"
+echo " Para rodar a pipeline híbrida (Zero-Shot + NLI):"
 echo "   1. source .ARS/bin/activate"
 echo "   2. Configure as chaves no arquivo .env"
-echo "   3. python script_grafo.py BigScrape.json grafo_big1.gexf"
+echo "   3. python zeroshot.py BigScrape.json grafo_big1.gexf"
 echo "=========================================================="
